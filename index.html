@@ -1,0 +1,780 @@
+<!doctype html>
+<!--
+  BUNYI APA TU? — Muzik Tahun 1 (Pendidikan Khas), SK 3.1 Meneroka bunyi
+    SP 3.1.2 Mengecam bunyi yang didengar (haiwan, manusia, kenderaan)  → 10 soalan bermarkah
+    SP 3.1.1 Meniru bunyi yang didengar                                 → aktiviti tiru (mikrofon)
+  gameId: muzik1-kenal-bunyi   (projek Firebase: gamedb-ff80a, sama dengan game lain)
+
+  FOLDER:
+    index.html        game
+    data.js           senarai bunyi + ayat
+    sintesis.js       bunyi terbina dalam (ganti sementara)
+    rakam-suara.html  studio: rakam suara arahan + rakam/muat naik bunyi sebenar
+    audio/            suara arahan Bahasa Melayu (<kunci>.wav)
+    bunyi/            bunyi sebenar (<id>.wav) — diutamakan berbanding bunyi terbina dalam
+
+  SEDIAKAN: cipta dokumen games/muzik1-kenal-bunyi di Firestore (nama, subjek "Muzik", tahun 1).
+  Rules, Anonymous sign-in dan Authorized domains sama seperti game sebelum ini.
+-->
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bunyi Apa Tu? Muzik Tahun 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f1ff; --ink:#2b2742; --muted:#6c6782; --card:#fff; --line:#e6ddfb;
+  --primary:#7048e8; --primary-d:#5530c4; --accent:#ffb703;
+  --ok:#25a862; --ok-bg:#e4f7ec; --bad:#e5484d; --bad-bg:#fde8e8; --rec:#e5484d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Baloo 2',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;
+  background-image:radial-gradient(circle at 0% 0%,#e9e0ff 0,transparent 40%),radial-gradient(circle at 100% 100%,#fff0c9 0,transparent 45%);}
+button{font:inherit;color:inherit}
+.wrap{max-width:780px;margin:0 auto;padding:12px 16px 40px}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 0 14px}
+.logo{font-weight:800;font-size:1.35rem;margin-right:auto;display:flex;align-items:center;gap:6px}
+.chip{display:none;align-items:center;gap:6px;background:#fff;border:3px solid var(--line);border-radius:999px;padding:2px 14px 0;font-weight:700;max-width:45vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.chip.on{display:flex}
+.ikon-btn{width:48px;height:48px;border-radius:50%;border:3px solid var(--line);background:#fff;font-size:1.4rem;cursor:pointer;flex:none}
+.screen{display:none;animation:masuk .35s ease}
+.screen.active{display:block}
+@keyframes masuk{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border:3px solid var(--line);border-radius:28px;padding:22px;box-shadow:0 8px 0 var(--line)}
+
+/* Mula */
+.hero{text-align:center}
+.tag{display:inline-block;background:#efe8ff;color:var(--primary-d);border-radius:999px;padding:2px 14px 0;font-weight:700;font-size:.95rem}
+.hero h1{font-size:clamp(2.3rem,9vw,3.4rem);line-height:1;margin:12px 0 4px}
+.hero p{margin:0 0 14px;color:var(--muted);font-size:1.15rem}
+.not-hiasan{font-size:2.4rem;letter-spacing:8px;margin:2px 0 6px}
+.not-hiasan span{display:inline-block;animation:melompat 1.6s ease-in-out infinite}
+.not-hiasan span:nth-child(2){animation-delay:.2s}.not-hiasan span:nth-child(3){animation-delay:.4s}
+@keyframes melompat{50%{transform:translateY(-8px)}}
+.tiga-kump{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:6px 0 16px}
+.tiga-kump span{background:#faf8ff;border:2px solid var(--line);border-radius:16px;padding:6px 14px 2px;font-weight:700}
+.langkah{font-weight:800;font-size:1.2rem;margin:14px 0 8px;text-align:left}
+.avatars{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.av{aspect-ratio:1;font-size:clamp(1.8rem,7vw,2.4rem);border:4px solid var(--line);border-radius:20px;background:#fff;cursor:pointer;transition:.15s}
+.av.pilih{border-color:var(--primary);background:#efe8ff;transform:scale(1.06)}
+input#nama{width:100%;font:inherit;font-size:1.6rem;font-weight:700;padding:12px 18px 8px;border:4px solid var(--line);border-radius:20px;outline:none;text-align:center}
+input#nama:focus{border-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:64px;padding:10px 28px 6px;font-size:1.45rem;font-weight:800;border:none;border-radius:20px;cursor:pointer;background:var(--primary);color:#fff;box-shadow:0 6px 0 var(--primary-d);transition:transform .1s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--primary-d)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.besar{width:100%;margin-top:18px}
+.btn.kedua{background:#fff;color:var(--ink);border:3px solid var(--line);box-shadow:0 6px 0 var(--line)}
+.ralat{color:var(--bad);font-weight:700;min-height:1.5em;margin-top:10px}
+.nota{margin-top:12px;font-size:.98rem;color:var(--muted);background:#faf8ff;border-radius:14px;padding:10px 14px 6px;text-align:left}
+.nota.ok{background:var(--ok-bg);color:#16784a}
+
+/* Main */
+.kemajuan{display:flex;gap:6px;margin-bottom:12px}
+.kemajuan i{flex:1;height:12px;border-radius:99px;background:#e6ddfb}
+.kemajuan i.siap{background:var(--ok)}
+.kemajuan i.kini{background:var(--primary)}
+.soalan{display:flex;align-items:center;gap:10px;margin:16px 0 12px}
+.soalan h2{margin:0;font-size:clamp(1.5rem,5.5vw,2rem);line-height:1.15;flex:1}
+.soalan h2 b{color:var(--primary-d)}
+.pentas{display:flex;justify-content:center}
+.dengar-besar{position:relative;width:min(230px,58vw);aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;
+  background:radial-gradient(circle at 35% 30%,#9775fa,var(--primary) 60%,var(--primary-d));color:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:800;font-size:1.25rem;
+  box-shadow:0 10px 0 #4423a8,0 0 0 10px #ece4ff}
+.dengar-besar .ikon{font-size:clamp(3.4rem,15vw,5rem);line-height:1}
+.dengar-besar::before,.dengar-besar::after{content:'';position:absolute;inset:0;border-radius:50%;border:6px solid #b197fc;opacity:0}
+.dengar-besar.main::before{animation:riak 1.2s ease-out infinite}
+.dengar-besar.main::after{animation:riak 1.2s ease-out .6s infinite}
+@keyframes riak{from{transform:scale(1);opacity:.8}to{transform:scale(1.45);opacity:0}}
+.gambar-besar{display:flex;flex-direction:column;align-items:center;background:linear-gradient(160deg,#fff,#f3eeff);border:3px solid var(--line);border-radius:28px;padding:16px 36px 10px;min-width:220px}
+.gambar-besar .emo{font-size:clamp(5rem,22vw,7.5rem);line-height:1.1}
+.gambar-besar .lbl{font-size:1.7rem;font-weight:800}
+
+.opsyen{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.opt{position:relative;border:4px solid var(--line);border-radius:24px;background:#fff;transition:transform .12s,border-color .12s}
+button.opt{cursor:pointer}
+button.opt:hover:not(:disabled){transform:translateY(-3px);border-color:var(--primary)}
+.opt.gambar{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 8px 8px;min-height:150px}
+.opt .emo{font-size:clamp(3rem,13vw,4.6rem);line-height:1.1}
+.opt .lbl{font-size:clamp(1.05rem,3.8vw,1.4rem);font-weight:800;text-align:center;line-height:1.1;margin-top:4px}
+.opt.kat{background:color-mix(in srgb,var(--w) 10%,#fff)}
+.opt.betul{border-color:var(--ok)!important;background:var(--ok-bg)!important}
+.opt.salah{border-color:var(--bad)!important;background:var(--bad-bg)!important;opacity:.7;animation:goyang .4s}
+.opt.betul::after,.opt.salah::after{position:absolute;top:6px;right:10px;font-size:1.7rem;content:'✅'}
+.opt.salah::after{content:'❌'}
+@keyframes goyang{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.opt:disabled{cursor:default}
+.bunyi-opt{display:flex;flex-direction:column;gap:8px;padding:10px}
+.b-dengar{display:flex;flex-direction:column;align-items:center;gap:2px;border:none;border-radius:18px;background:#efe8ff;padding:14px 6px 8px;cursor:pointer;font-weight:800;font-size:1.15rem}
+.b-dengar .gel{font-size:2.6rem;line-height:1}
+.b-dengar.main{background:#d9ccff;animation:denyut .6s ease-in-out infinite alternate}
+@keyframes denyut{to{transform:scale(1.04)}}
+.b-pilih{border:none;border-radius:16px;background:var(--primary);color:#fff;font-weight:800;font-size:1.15rem;padding:10px 6px 6px;cursor:pointer;box-shadow:0 4px 0 var(--primary-d)}
+.b-pilih:disabled{opacity:.45;cursor:default}
+
+.maklum{display:none;align-items:center;gap:12px;margin-top:16px;padding:14px 16px 10px;border-radius:22px;font-size:1.4rem;font-weight:800}
+.maklum.on{display:flex}
+.maklum.ok{background:var(--ok-bg);color:#16784a}
+.maklum.cuba{background:#fff4d6;color:#9a6b00}
+.maklum.bad{background:var(--bad-bg);color:#b3262b}
+.maklum .teks{flex:1}
+.maklum .btn{min-height:56px;font-size:1.25rem;padding:8px 20px 4px}
+
+/* Tiru */
+.tiru-kepala{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:800}
+.tiru-butang{display:grid;grid-template-columns:1fr 1.4fr;gap:12px;margin-top:18px}
+.btn.mic{background:var(--rec);box-shadow:0 6px 0 #b3262b}
+.btn.mic.rakam{animation:denyut .5s ease-in-out infinite alternate}
+.meter{height:22px;border-radius:99px;background:#efe8ff;overflow:hidden;margin-top:14px;border:3px solid var(--line)}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#69db7c,#ffd43b,#ff6b6b);transition:width .06s}
+.tiru-bawah{display:flex;justify-content:space-between;gap:10px;margin-top:16px}
+.tiru-bawah .btn{min-height:56px;font-size:1.2rem;padding:8px 20px 4px}
+
+/* Tamat */
+.bintang{font-size:clamp(2.8rem,12vw,4rem);text-align:center;letter-spacing:6px}
+.bintang .mati{filter:grayscale(1);opacity:.3}
+.tahniah{text-align:center;font-size:clamp(1.6rem,6vw,2.2rem);font-weight:800;margin:4px 0 0}
+.skor-besar{text-align:center;font-size:clamp(3rem,14vw,4.6rem);font-weight:800;color:var(--primary-d);line-height:1;margin:6px 0}
+.skor-besar small{font-size:.4em;color:var(--muted)}
+.ringkas{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:8px 0 16px}
+.ringkas span{background:#faf8ff;border:2px solid var(--line);border-radius:14px;padding:6px 14px 2px;font-weight:700}
+.baris{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:10px;margin:8px 0}
+.baris .e{font-size:2rem;text-align:center}
+.bar{height:16px;border-radius:99px;background:#ece6fb;overflow:hidden;margin-top:2px}
+.bar i{display:block;height:100%;border-radius:99px}
+.baris .lbl{font-weight:800;font-size:1.15rem}
+.baris .n{font-weight:800;font-size:1.2rem}
+.status{text-align:center;font-weight:700;margin:14px 0 4px;padding:8px 12px 4px;border-radius:14px;background:#faf8ff}
+.status.ok{background:var(--ok-bg);color:#16784a}
+.status.bad{background:var(--bad-bg);color:#b3262b}
+.butang-akhir{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.butang-akhir .btn{padding:8px 10px 4px;font-size:1.15rem}
+details{margin-top:16px}
+summary{cursor:pointer;font-weight:800;font-size:1.1rem}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:1rem}
+th,td{padding:6px 6px 3px;border-bottom:2px solid var(--line);text-align:left}
+th{color:var(--muted)}
+
+#senarai{list-style:none;padding:0;margin:10px 0 0}
+#senarai li{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:10px;padding:10px 14px 6px;border:3px solid var(--line);border-radius:18px;margin-bottom:8px;font-size:1.3rem;font-weight:700;background:#fff}
+#senarai li.saya{border-color:var(--primary);background:#efe8ff}
+#senarai .rank{font-size:1.5rem;text-align:center}
+#senarai .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#senarai .sc{color:var(--primary-d);font-weight:800}
+
+.konfeti{position:fixed;top:-40px;font-size:2rem;pointer-events:none;animation:jatuh linear forwards;z-index:9}
+@keyframes jatuh{to{transform:translateY(110vh) rotate(540deg)}}
+
+@media (max-width:520px){
+  .avatars{grid-template-columns:repeat(3,1fr)}
+  .butang-akhir{grid-template-columns:1fr}
+  .opsyen{gap:8px}
+  .opt.gambar{min-height:120px;padding:10px 4px 6px}
+  .bunyi-opt{padding:6px}
+  .tiru-butang{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topbar">
+    <div class="logo">🎵 Bunyi Apa Tu?</div>
+    <div class="chip" id="chip"></div>
+    <button class="ikon-btn" id="btn-suara" title="Suara arahan on/off" aria-label="Suara arahan">🗣️</button>
+  </header>
+
+  <!-- MULA -->
+  <section class="screen active" id="s-mula">
+    <div class="card hero">
+      <span class="tag">Muzik Tahun 1 · SK 3.1</span>
+      <div class="not-hiasan"><span>🎵</span><span>👂</span><span>🎶</span></div>
+      <h1>Bunyi Apa Tu?</h1>
+      <p>Dengar bunyi, teka, kemudian tiru!</p>
+      <div class="tiga-kump" id="tiga-kump"></div>
+
+      <div class="langkah">1. Pilih watak kamu</div>
+      <div class="avatars" id="avatars"></div>
+      <div class="langkah">2. Tulis nama samaran</div>
+      <input id="nama" maxlength="20" autocomplete="off" placeholder="cth: Burung Ceria" aria-label="Nama samaran">
+
+      <button class="btn besar" id="btn-mula">Mula ▶</button>
+      <div class="ralat" id="ralat-mula"></div>
+      <button class="btn kedua besar" id="btn-offline" style="display:none">Main juga (skor tidak disimpan)</button>
+      <div class="nota" id="nota-demo" style="display:none"><b>Mod demo:</b> firebaseConfig belum diisi, jadi skor tidak disimpan.</div>
+      <div class="nota" id="status-suara"></div>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <section class="screen" id="s-main">
+    <div class="kemajuan" id="kemajuan"></div>
+    <div class="card">
+      <div class="pentas" id="pentas"></div>
+      <div class="soalan">
+        <h2 id="teks-soalan"></h2>
+        <button class="ikon-btn" id="btn-ulang" title="Ulang soalan" aria-label="Ulang soalan">🔁</button>
+      </div>
+      <div class="opsyen" id="opsyen"></div>
+      <div class="maklum" id="maklum">
+        <span class="teks" id="maklum-teks"></span>
+        <button class="btn" id="btn-seterusnya">Seterusnya ➜</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIRU -->
+  <section class="screen" id="s-tiru">
+    <div class="card">
+      <div class="tiru-kepala"><span class="tag">🎤 Jom Tiru Bunyi</span><span id="tiru-kiraan"></span></div>
+      <div class="pentas"><div class="gambar-besar" id="tiru-gambar"></div></div>
+      <div class="tiru-butang">
+        <button class="btn kedua" id="tiru-dengar">🔊 Dengar</button>
+        <button class="btn mic" id="tiru-rakam">🎤 Tiru sekarang</button>
+      </div>
+      <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+      <div class="maklum" id="tiru-maklum"><span class="teks" id="tiru-teks"></span></div>
+      <div class="tiru-bawah">
+        <button class="btn kedua" id="tiru-langkau">Langkau ⏭</button>
+        <button class="btn" id="tiru-seterusnya" style="display:none">Seterusnya ➜</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAMAT -->
+  <section class="screen" id="s-tamat">
+    <div class="card">
+      <div class="bintang" id="bintang"></div>
+      <div class="tahniah" id="tahniah"></div>
+      <div class="skor-besar" id="skor-besar"></div>
+      <div class="ringkas" id="ringkas"></div>
+      <div id="hasil-kump"></div>
+      <div class="status" id="status-simpan"></div>
+      <div class="butang-akhir">
+        <button class="btn" id="btn-lagi">🔁 Main Lagi</button>
+        <button class="btn kedua" id="btn-papan">🏆 Papan Skor</button>
+        <button class="btn kedua" id="btn-murid-lain">👤 Murid Lain</button>
+      </div>
+      <details>
+        <summary>Butiran jawapan (untuk guru)</summary>
+        <table><thead><tr><th>#</th><th>Jenis soalan</th><th>Bunyi</th><th>Jawapan pertama</th><th>Markah</th></tr></thead><tbody id="butiran"></tbody></table>
+        <table><thead><tr><th>Tiru bunyi (3.1.1)</th><th>Keputusan</th></tr></thead><tbody id="butiran-tiru"></tbody></table>
+      </details>
+    </div>
+  </section>
+
+  <!-- PAPAN SKOR -->
+  <section class="screen" id="s-papan">
+    <div class="card">
+      <h2 style="margin:0;font-size:2rem">🏆 Papan Skor</h2>
+      <div style="color:var(--muted);font-weight:700" id="papan-status"></div>
+      <ol id="senarai"></ol>
+      <button class="btn besar" id="btn-kembali">⬅ Kembali</button>
+    </div>
+  </section>
+</div>
+
+<script src="data.js"></script>
+<script src="sintesis.js"></script>
+<script type="module">
+/* ================= KONFIGURASI ================= */
+const GAME_ID = 'muzik1-kenal-bunyi';
+const firebaseConfig = {
+  apiKey: "AIzaSyA7cZ9GMsqqQNC_DBFs3RLqq1lqq5wk3Ko",
+  authDomain: "gamedb-ff80a.firebaseapp.com",
+  projectId: "gamedb-ff80a",
+  storageBucket: "gamedb-ff80a.firebasestorage.app",
+  messagingSenderId: "452316005",
+  appId: "1:452316005:web:a473ab1b408551930aaf8c"
+};
+/* =============================================== */
+
+const FB_URL = 'https://www.gstatic.com/firebasejs/10.12.0/';
+const DEMO = !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('TAMPAL');
+const $ = s => document.querySelector(s);
+
+const BUNYI = window.BUNYI || [], KUMPULAN = window.KUMPULAN || {}, FRASA = window.FRASA || {};
+const PUJI = window.PUJI || ['Bagus!'], TIRU = window.TIRU || [];
+const B = Object.fromEntries(BUNYI.map(b => [b.id, b]));
+const KAT = Object.keys(KUMPULAN);
+const AVATAR = ['🐱', '🐶', '🐼', '🐰', '🦁', '🐸'];
+const JENIS = { A: 'Dengar bunyi, pilih gambar', B: 'Dengar bunyi, pilih kumpulan', C: 'Lihat gambar, pilih bunyi' };
+const SOALAN_PER_JENIS = { A: 6, B: 2, C: 2 };
+const BIL_TIRU = 3;
+
+const st = { nama: '', avatar: AVATAR[0], uid: null, offline: DEMO, soalan: [], i: 0, cubaan: 0, kunci: false, rekod: [], tiru: [], mula: 0, suara: true };
+
+function kocok(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function tunjuk(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id)); window.scrollTo(0, 0); }
+const tunggu = ms => new Promise(r => setTimeout(r, ms));
+
+/* ================= AUDIO =================
+   Suara arahan: audio/<kunci>.wav → suara pelayar Melayu (ms) → senyap. Tiada suara Indonesia/Inggeris.
+   Bunyi: bunyi/<id>.wav (bunyi sebenar) → bunyi terbina dalam (sintesis.js) */
+const AUDIO = {}, FAIL_BUNYI = {};
+let ac = null, suaraMs = null, giliran = 0, semasa = null, sintNow = null;
+function getAC() {
+  ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === 'suspended') ac.resume();
+  return ac;
+}
+function pilihSuara() {
+  if (!('speechSynthesis' in window)) return;
+  const ms = speechSynthesis.getVoices().filter(v => /^ms([-_]|$)/i.test(v.lang));
+  suaraMs = ms.find(v => /natural|online|neural/i.test(v.name)) || ms.find(v => /google/i.test(v.name)) || ms[0] || null;
+  statusSuara();
+}
+async function adaFail(url) {
+  try { const r = await fetch(url, { method: 'HEAD', cache: 'no-cache' }); return r.ok; } catch (e) { return false; }
+}
+async function semakFail() {
+  await Promise.all([
+    ...Object.keys(FRASA).map(async k => { if (await adaFail(`audio/${k}.wav`)) { AUDIO[k] = new Audio(`audio/${k}.wav`); AUDIO[k].preload = 'auto'; } }),
+    ...BUNYI.map(async b => { if (await adaFail(`bunyi/${b.id}.wav`)) { FAIL_BUNYI[b.id] = new Audio(`bunyi/${b.id}.wav`); FAIL_BUNYI[b.id].preload = 'auto'; } })
+  ]);
+  statusSuara();
+}
+function statusSuara() {
+  const el = $('#status-suara'); if (!el) return;
+  const a = Object.keys(AUDIO).length, aj = Object.keys(FRASA).length;
+  const b = Object.keys(FAIL_BUNYI).length, bj = BUNYI.length;
+  const suara = a === aj ? '🗣️ Suara arahan: rakaman guru (lengkap).'
+    : a ? `🗣️ Suara arahan: rakaman guru ${a}/${aj}.`
+    : suaraMs ? `🗣️ Suara arahan: ${suaraMs.name}.`
+    : '🗣️ Belum ada suara arahan Bahasa Melayu (teks sahaja).';
+  const bunyi = b === bj ? '🎵 Bunyi: semua bunyi sebenar.' : b ? `🎵 Bunyi sebenar ${b}/${bj}, selebihnya bunyi terbina dalam.` : '🎵 Bunyi: bunyi terbina dalam.';
+  el.className = 'nota' + (a === aj && b === bj ? ' ok' : '');
+  el.textContent = suara + ' ' + bunyi + (a < aj || b < bj ? ' Guru boleh rakam di rakam-suara.html.' : '');
+}
+function animasi(el, on) { if (el) el.classList.toggle('main', on); }
+function henti() {
+  giliran++;
+  if (semasa) { semasa.pause(); semasa = null; }
+  if (sintNow) { sintNow.stop(); sintNow = null; }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  document.querySelectorAll('.main').forEach(e => e.classList.remove('main'));
+}
+function mainFail(el, id) {
+  return new Promise(res => {
+    if (id !== giliran) return res();
+    semasa = el; el.currentTime = 0;
+    el.onended = el.onerror = () => res();
+    const p = el.play(); if (p) p.catch(() => res());
+  });
+}
+async function sebutId(kunci, id) {
+  const s = [].concat(kunci).filter(k => FRASA[k]);
+  if (!st.suara || !s.length) return;
+  if (s.every(k => AUDIO[k])) { for (const k of s) { if (id !== giliran) return; await mainFail(AUDIO[k], id); } return; }
+  if (!suaraMs) return;
+  await new Promise(res => {
+    const u = new SpeechSynthesisUtterance(s.map(k => FRASA[k]).join(' '));
+    u.voice = suaraMs; u.lang = suaraMs.lang; u.rate = .9;
+    u.onend = u.onerror = () => res();
+    speechSynthesis.speak(u); setTimeout(res, 9000);
+  });
+}
+async function bunyiId(bid, id, el) {
+  if (id !== giliran || !B[bid]) return;
+  animasi(el, true);
+  if (FAIL_BUNYI[bid]) await mainFail(FAIL_BUNYI[bid], id);
+  else {
+    const r = window.Sintesis.main(bid, getAC()); sintNow = r;
+    await tunggu(r.dur * 1000 + 150);
+    if (sintNow === r) sintNow = null;
+  }
+  animasi(el, false);
+}
+// langkah: [{suara:'kunci'|[...]}, {bunyi:'id', el:'#sel'}, {jeda:ms}]
+async function jalankan(langkah) {
+  henti(); const id = giliran;
+  for (const l of langkah) {
+    if (id !== giliran) return;
+    if (l.suara) await sebutId(l.suara, id);
+    else if (l.bunyi) await bunyiId(l.bunyi, id, typeof l.el === 'string' ? $(l.el) : (l.el || null));
+    else if (l.jeda) await tunggu(l.jeda);
+  }
+}
+function nada(f, jenis = 'sine', d = .14) {
+  try {
+    const a = getAC(), t = a.currentTime;
+    f.forEach((hz, i) => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = jenis; o.frequency.value = hz;
+      g.gain.setValueAtTime(.0001, t + i * d); g.gain.exponentialRampToValueAtTime(.16, t + i * d + .02); g.gain.exponentialRampToValueAtTime(.0001, t + i * d + d);
+      o.connect(g).connect(a.destination); o.start(t + i * d); o.stop(t + i * d + d + .03);
+    });
+  } catch (e) {}
+}
+const bunyiBetul = () => nada([660, 880, 1175]);
+const bunyiSalah = () => nada([260, 200], 'triangle', .18);
+function konfeti() {
+  for (let i = 0; i < 26; i++) {
+    const s = document.createElement('span');
+    s.className = 'konfeti'; s.textContent = ['🎵', '🎶', '⭐', '✨'][i % 4];
+    s.style.left = Math.random() * 100 + 'vw'; s.style.animationDuration = 1.6 + Math.random() * 1.6 + 's'; s.style.animationDelay = Math.random() * .5 + 's';
+    document.body.append(s); setTimeout(() => s.remove(), 4000);
+  }
+}
+if ('speechSynthesis' in window) { pilihSuara(); speechSynthesis.onvoiceschanged = pilihSuara; }
+statusSuara(); semakFail();
+
+/* ================= FIREBASE ================= */
+let fb = null;
+async function fbInit() {
+  if (DEMO) return null;
+  if (fb) return fb;
+  const [app, auth, fs] = await Promise.all([import(FB_URL + 'firebase-app.js'), import(FB_URL + 'firebase-auth.js'), import(FB_URL + 'firebase-firestore.js')]);
+  const a = app.initializeApp(firebaseConfig);
+  fb = { auth: auth.getAuth(a), db: fs.getFirestore(a), A: auth, F: fs };
+  return fb;
+}
+function petua(e) {
+  const c = (e && e.code) || '';
+  if (c.includes('operation-not-allowed') || c.includes('admin-restricted')) return 'Guru: hidupkan "Anonymous" di Firebase Console → Authentication → Sign-in method.';
+  if (c.includes('unauthorized-domain')) return 'Guru: tambah domain ini di Authentication → Settings → Authorized domains.';
+  if (c.includes('permission-denied')) return 'Ditolak oleh Security Rules. Semak rules dalam fail panduan.';
+  if (c.includes('network') || c.includes('unavailable')) return 'Tiada sambungan internet.';
+  return c || (e && e.message) || 'Ralat tidak diketahui.';
+}
+async function logMasuk(nama) {
+  const { auth, db, A, F } = await fbInit();
+  await auth.authStateReady();
+  let u = auth.currentUser, profil = null;
+  if (u) { const s = await F.getDoc(F.doc(db, 'users', u.uid)); profil = s.exists() ? s.data() : null; }
+  if (!u || (profil && profil.displayName !== nama)) {
+    if (u) await A.signOut(auth);
+    u = (await A.signInAnonymously(auth)).user; profil = null;
+  }
+  if (!profil) await F.setDoc(F.doc(db, 'users', u.uid), { displayName: nama, createdAt: F.serverTimestamp() }, { merge: true });
+  st.uid = u.uid;
+}
+async function simpanSkor(h) {
+  const { db, F } = await fbInit();
+  const pRef = F.doc(db, 'users', st.uid, 'progress', GAME_ID);
+  const pSnap = await F.getDoc(pRef);
+  const lama = pSnap.exists() ? pSnap.data() : {};
+  const kaliMain = ((lama.data && lama.data.kaliMain) || 0) + 1;
+  await F.setDoc(pRef, {
+    score: h.skor,
+    bestScore: Math.max(lama.bestScore || 0, h.skor),
+    level: 1,
+    completed: true,
+    lastPlayed: F.serverTimestamp(),
+    data: {
+      namaSamaran: st.nama, avatar: st.avatar, kaliMain,
+      betul: h.betul, betulCubaanPertama: h.betul1, jumlahSoalan: h.jumlah, masaSaat: h.masa,
+      ikutKumpulan: h.ikutKumpulan, ikutJenis: h.ikutJenis,
+      tiru: { jumlah: st.tiru.length, berjaya: h.tiruBerjaya, senarai: st.tiru },
+      jawapan: st.rekod
+    }
+  });
+  const lRef = F.doc(db, 'leaderboards', GAME_ID, 'scores', st.uid);
+  const lSnap = await F.getDoc(lRef);
+  let rekodBaru = false;
+  if (!lSnap.exists() || h.skor > lSnap.data().score) {
+    await F.setDoc(lRef, { score: h.skor, displayName: (st.avatar + ' ' + st.nama).slice(0, 30), updatedAt: F.serverTimestamp() });
+    rekodBaru = lSnap.exists();
+  }
+  return { kaliMain, rekodBaru };
+}
+
+/* ================= MULA ================= */
+$('#tiga-kump').innerHTML = KAT.map(k => `<span>${KUMPULAN[k].emoji} ${KUMPULAN[k].nama}</span>`).join('');
+$('#avatars').innerHTML = AVATAR.map((a, i) => `<button class="av${i === 0 ? ' pilih' : ''}" data-a="${a}" aria-label="Watak ${i + 1}">${a}</button>`).join('');
+$('#avatars').addEventListener('click', e => {
+  const b = e.target.closest('.av'); if (!b) return;
+  document.querySelectorAll('.av').forEach(x => x.classList.toggle('pilih', x === b));
+  st.avatar = b.dataset.a; nada([520]);
+});
+if (DEMO) $('#nota-demo').style.display = 'block';
+$('#nama').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btn-mula').click(); });
+$('#btn-mula').addEventListener('click', async () => {
+  getAC();
+  const nama = $('#nama').value.trim().replace(/\s+/g, ' ');
+  const ralat = $('#ralat-mula');
+  $('#btn-offline').style.display = 'none';
+  if (!nama) { ralat.textContent = 'Tulis nama samaran dahulu 🙂'; jalankan([{ suara: 'tulis_nama' }]); $('#nama').focus(); return; }
+  if (!/^[\p{L}\p{N} ._-]{1,20}$/u.test(nama)) { ralat.textContent = 'Guna huruf dan nombor sahaja.'; return; }
+  ralat.textContent = ''; st.nama = nama;
+  const btn = $('#btn-mula');
+  if (!DEMO) {
+    btn.disabled = true; btn.textContent = 'Sedang masuk…';
+    try { await logMasuk(nama); st.offline = false; }
+    catch (e) {
+      console.error(e);
+      ralat.textContent = 'Tidak dapat log masuk. ' + petua(e);
+      $('#btn-offline').style.display = 'flex';
+      btn.disabled = false; btn.textContent = 'Mula ▶';
+      return;
+    }
+    btn.disabled = false; btn.textContent = 'Mula ▶';
+  }
+  mulaGame();
+});
+$('#btn-offline').addEventListener('click', () => { st.offline = true; $('#ralat-mula').textContent = ''; $('#btn-offline').style.display = 'none'; mulaGame(); });
+$('#btn-suara').addEventListener('click', () => {
+  st.suara = !st.suara; $('#btn-suara').textContent = st.suara ? '🗣️' : '🤐';
+  if (!st.suara && 'speechSynthesis' in window) speechSynthesis.cancel();
+});
+
+/* ================= SOALAN ================= */
+function binaSoalan() {
+  const ikutKat = KAT.map(k => kocok(BUNYI.filter(b => b.kat === k)));
+  const perKat = Math.floor(SOALAN_PER_JENIS.A / KAT.length);
+  const a = []; ikutKat.forEach(l => a.push(...l.splice(0, perKat)));
+  const baki = kocok(ikutKat.flat());
+  const qs = [];
+  a.forEach(b => {
+    const lain = kocok(BUNYI.filter(x => x.id !== b.id)).slice(0, 2);
+    qs.push({ jenis: 'A', jawapan: b.id, bunyi: b.id, pilihan: kocok([b.id, ...lain.map(x => x.id)]) });
+  });
+  const bB = [];
+  for (const b of baki) if (bB.length < SOALAN_PER_JENIS.B && !bB.some(x => x.kat === b.kat)) bB.push(b);
+  bB.forEach(b => qs.push({ jenis: 'B', jawapan: b.kat, bunyi: b.id, pilihan: kocok(KAT) }));
+  baki.filter(b => !bB.includes(b)).slice(0, SOALAN_PER_JENIS.C).forEach(b => {
+    const lain = kocok(BUNYI.filter(x => x.kat !== b.kat)).slice(0, 2);
+    qs.push({ jenis: 'C', jawapan: b.id, bunyi: b.id, pilihan: kocok([b.id, ...lain.map(x => x.id)]) });
+  });
+  return kocok(qs);
+}
+function mulaGame() {
+  const chip = $('#chip'); chip.textContent = st.avatar + ' ' + st.nama; chip.classList.add('on');
+  st.soalan = binaSoalan(); st.i = 0; st.rekod = []; st.tiru = []; st.mula = Date.now();
+  tunjuk('s-main'); papar();
+}
+const labelJawapan = (q, v) => q.jenis === 'B' ? KUMPULAN[v].nama : B[v].nama;
+const kunciJawapan = (q, v) => q.jenis === 'B' ? 'kumpulan_' + v : 'nama_' + v;
+function langkahSoalan(q) {
+  if (q.jenis === 'C') return [{ suara: ['cari_bunyi', 'nama_' + q.jawapan] }];
+  return [{ suara: q.jenis === 'A' ? 'soalan_a' : 'soalan_b' }, { jeda: 200 }, { bunyi: q.bunyi, el: '#dengar-besar' }];
+}
+function papar() {
+  const q = st.soalan[st.i]; st.cubaan = 0; st.kunci = false; q.pilihanPertama = null;
+  $('#kemajuan').innerHTML = st.soalan.map((_, i) => `<i class="${i < st.i ? 'siap' : i === st.i ? 'kini' : ''}"></i>`).join('');
+  const pentas = $('#pentas'), ops = $('#opsyen');
+  if (q.jenis === 'C') {
+    const b = B[q.jawapan];
+    pentas.innerHTML = `<div class="gambar-besar"><span class="emo">${b.emoji}</span><span class="lbl">${b.nama}</span></div>`;
+    $('#teks-soalan').innerHTML = `Cari bunyi <b>${b.nama.toLowerCase()}</b>. Dengar, kemudian pilih.`;
+    ops.innerHTML = q.pilihan.map((id, n) => `<div class="opt bunyi-opt" data-k="${id}">
+      <button class="b-dengar" data-main="${id}" aria-label="Dengar bunyi ${n + 1}"><span class="gel">🔊</span>Bunyi ${n + 1}</button>
+      <button class="b-pilih" data-pilih="${id}">Pilih ✔</button></div>`).join('');
+  } else {
+    pentas.innerHTML = `<button class="dengar-besar" id="dengar-besar" data-main="${q.bunyi}" aria-label="Dengar bunyi"><span class="ikon">🔊</span><span>Dengar</span></button>`;
+    $('#teks-soalan').innerHTML = q.jenis === 'A' ? 'Bunyi <b>apa</b> ini?' : 'Bunyi ini dari kumpulan <b>apa</b>?';
+    ops.innerHTML = q.jenis === 'A'
+      ? q.pilihan.map(id => `<button class="opt gambar" data-k="${id}" data-pilih="${id}"><span class="emo">${B[id].emoji}</span><span class="lbl">${B[id].nama}</span></button>`).join('')
+      : q.pilihan.map(k => `<button class="opt gambar kat" data-k="${k}" data-pilih="${k}" style="--w:${KUMPULAN[k].warna}"><span class="emo">${KUMPULAN[k].emoji}</span><span class="lbl">${KUMPULAN[k].nama}</span></button>`).join('');
+  }
+  $('#maklum').className = 'maklum';
+  jalankan(langkahSoalan(q));
+}
+document.querySelector('#s-main').addEventListener('click', e => {
+  const m = e.target.closest('[data-main]');
+  if (m) { jalankan([{ bunyi: m.dataset.main, el: m }]); return; }
+  const p = e.target.closest('[data-pilih]');
+  if (p && !p.disabled) pilih(p.dataset.pilih, p);
+});
+$('#btn-ulang').addEventListener('click', () => { const q = st.soalan[st.i]; if (q) jalankan(langkahSoalan(q)); });
+
+function maklum(jenis, teks, adaNext) {
+  $('#maklum').className = 'maklum on ' + jenis;
+  $('#maklum-teks').textContent = teks;
+  const b = $('#btn-seterusnya');
+  b.style.display = adaNext ? 'inline-flex' : 'none';
+  if (adaNext) b.textContent = st.i === st.soalan.length - 1 ? 'Jom Tiru 🎤' : 'Seterusnya ➜';
+}
+function pilih(val, btn) {
+  if (st.kunci) return;
+  const q = st.soalan[st.i], kad = btn.closest('.opt');
+  if (!q.pilihanPertama) q.pilihanPertama = val;
+  const kump = q.jenis === 'B' ? q.jawapan : B[q.jawapan].kat;
+  const tutup = () => { st.kunci = true; document.querySelectorAll('#opsyen [data-pilih]').forEach(b => b.disabled = true); };
+  if (val === q.jawapan) {
+    const markah = st.cubaan === 0 ? 10 : 5;
+    kad.classList.add('betul'); tutup(); bunyiBetul();
+    st.rekod.push({ no: st.i + 1, jenis: q.jenis, bunyi: q.bunyi, kumpulan: kump, pilihanPertama: q.pilihanPertama, betul: true, cubaan: st.cubaan + 1, markah });
+    const n = Math.floor(Math.random() * PUJI.length);
+    maklum('ok', `${PUJI[n]} ${labelJawapan(q, val)} ✅`, true);
+    jalankan([{ jeda: 350 }, { suara: ['puji_' + (n + 1), kunciJawapan(q, val)] }]);
+  } else {
+    st.cubaan++; kad.classList.add('salah'); bunyiSalah();
+    kad.querySelectorAll('[data-pilih]').forEach(b => b.disabled = true);
+    if (kad.matches('[data-pilih]')) kad.disabled = true;
+    if (st.cubaan === 1) {
+      maklum('cuba', 'Hampir! Dengar sekali lagi 👂', false);
+      jalankan(q.jenis === 'C' ? [{ jeda: 350 }, { suara: 'cuba_lagi' }] : [{ jeda: 350 }, { suara: 'cuba_lagi' }, { jeda: 150 }, { bunyi: q.bunyi, el: '#dengar-besar' }]);
+    } else {
+      tutup();
+      $(`#opsyen .opt[data-k="${q.jawapan}"]`).classList.add('betul');
+      st.rekod.push({ no: st.i + 1, jenis: q.jenis, bunyi: q.bunyi, kumpulan: kump, pilihanPertama: q.pilihanPertama, betul: false, cubaan: 0, markah: 0 });
+      maklum('bad', `Jawapannya: ${labelJawapan(q, q.jawapan)}`, true);
+      jalankan([{ jeda: 350 }, { suara: ['jawapannya', kunciJawapan(q, q.jawapan)] }, { jeda: 150 }, { bunyi: q.bunyi, el: q.jenis === 'C' ? null : '#dengar-besar' }]);
+    }
+  }
+}
+$('#btn-seterusnya').addEventListener('click', () => { st.i++; st.i < st.soalan.length ? papar() : mulaTiru(); });
+
+/* ================= TIRU (3.1.1) ================= */
+const tr = { senarai: [], i: 0, cubaan: 0, strim: null, sedang: false };
+function mulaTiru() {
+  henti();
+  tr.senarai = kocok(TIRU).slice(0, BIL_TIRU); tr.i = 0;
+  tunjuk('s-tiru'); paparTiru();
+}
+function paparTiru() {
+  const id = tr.senarai[tr.i], b = B[id]; tr.cubaan = 0; tr.hasil = null;
+  $('#tiru-kiraan').textContent = `${tr.i + 1} / ${tr.senarai.length}`;
+  $('#tiru-gambar').innerHTML = `<span class="emo">${b.emoji}</span><span class="lbl">${b.nama}</span>`;
+  $('#tiru-maklum').className = 'maklum';
+  $('#tiru-seterusnya').style.display = 'none';
+  $('#tiru-rakam').disabled = false; $('#tiru-rakam').textContent = '🎤 Tiru sekarang';
+  $('#meter').style.width = '0';
+  jalankan([{ suara: tr.i === 0 ? 'tiru_mula' : 'tiru_giliran' }, { jeda: 200 }, { bunyi: id, el: '#tiru-dengar' }]);
+}
+function tiruMaklum(jenis, teks) { $('#tiru-maklum').className = 'maklum on ' + jenis; $('#tiru-teks').textContent = teks; }
+$('#tiru-dengar').addEventListener('click', () => jalankan([{ bunyi: tr.senarai[tr.i], el: '#tiru-dengar' }]));
+$('#tiru-rakam').addEventListener('click', async () => {
+  if (tr.sedang) return;
+  henti();
+  const btn = $('#tiru-rakam');
+  try {
+    tr.strim = tr.strim || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) {
+    tiruMaklum('bad', 'Mikrofon tidak dapat dibuka. Tekan Langkau, atau minta guru benarkan mikrofon.');
+    return;
+  }
+  tr.sedang = true; tr.cubaan++;
+  const a = getAC(), sumber = a.createMediaStreamSource(tr.strim), an = a.createAnalyser();
+  an.fftSize = 1024; sumber.connect(an);
+  const data = new Float32Array(an.fftSize);
+  let maks = 0, aktif = 0;
+  const cebisan = [], rec = window.MediaRecorder ? new MediaRecorder(tr.strim) : null;
+  if (rec) { rec.ondataavailable = e => { if (e.data.size) cebisan.push(e.data); }; rec.start(); }
+  btn.classList.add('rakam');
+  const tempoh = 3500, mula = performance.now();
+  await new Promise(res => {
+    (function ukur() {
+      an.getFloatTimeDomainData(data);
+      let s = 0; for (const v of data) s += v * v;
+      const rms = Math.sqrt(s / data.length);
+      maks = Math.max(maks, rms); if (rms > 0.035) aktif++;
+      $('#meter').style.width = Math.min(100, rms * 600) + '%';
+      const baki = Math.ceil((tempoh - (performance.now() - mula)) / 1000);
+      btn.textContent = `🔴 Tiru sekarang… ${Math.max(0, baki)}`;
+      if (performance.now() - mula < tempoh) requestAnimationFrame(ukur); else res();
+    })();
+  });
+  sumber.disconnect();
+  const rakaman = await new Promise(res => { if (!rec) return res(null); rec.onstop = () => res(new Blob(cebisan, { type: cebisan[0] ? cebisan[0].type : 'audio/webm' })); rec.stop(); });
+  btn.classList.remove('rakam'); $('#meter').style.width = '0'; tr.sedang = false;
+  const dikesan = maks > 0.05 && aktif >= 6;
+  if (dikesan) {
+    bunyiBetul();
+    tr.hasil = { bunyi: tr.senarai[tr.i], dikesan: true, cubaan: tr.cubaan };
+    tiruMaklum('ok', 'Bagus! Kamu sudah meniru bunyi 🎉');
+    btn.textContent = '🎤 Tiru lagi';
+    $('#tiru-seterusnya').style.display = 'inline-flex';
+    await jalankan([{ jeda: 300 }, { suara: 'tiru_bagus' }]);
+    if (rakaman && tr.hasil) { const u = new Audio(URL.createObjectURL(rakaman)); semasa = u; u.play().catch(() => {}); }
+  } else {
+    bunyiSalah();
+    tiruMaklum('cuba', 'Suara tidak kedengaran. Cuba lagi dengan lebih kuat! 📣');
+    btn.textContent = '🎤 Cuba lagi';
+    if (tr.cubaan >= 2) $('#tiru-seterusnya').style.display = 'inline-flex';
+    jalankan([{ jeda: 300 }, { suara: 'tiru_kuat' }]);
+  }
+});
+function tiruSeterusnya(dilangkau) {
+  if (tr.sedang) return;
+  henti();
+  st.tiru.push(tr.hasil || { bunyi: tr.senarai[tr.i], dikesan: false, cubaan: tr.cubaan, dilangkau: !!dilangkau });
+  tr.i++;
+  tr.i < tr.senarai.length ? paparTiru() : tamat();
+}
+$('#tiru-seterusnya').addEventListener('click', () => tiruSeterusnya(false));
+$('#tiru-langkau').addEventListener('click', () => tiruSeterusnya(true));
+
+/* ================= TAMAT ================= */
+async function tamat() {
+  henti();
+  if (tr.strim) { tr.strim.getTracks().forEach(t => t.stop()); tr.strim = null; }
+  const r = st.rekod;
+  const skor = r.reduce((s, x) => s + x.markah, 0);
+  const masa = Math.round((Date.now() - st.mula) / 1000);
+  const ringkas = s => ({ jumlah: s.length, betul: s.filter(x => x.betul).length, betulCubaanPertama: s.filter(x => x.cubaan === 1).length, markah: s.reduce((a, x) => a + x.markah, 0) });
+  const ikutKumpulan = {}; KAT.forEach(k => ikutKumpulan[k] = ringkas(r.filter(x => x.kumpulan === k)));
+  const ikutJenis = {}; Object.keys(JENIS).forEach(j => ikutJenis[j] = { ...ringkas(r.filter(x => x.jenis === j)), keterangan: JENIS[j] });
+  const tiruBerjaya = st.tiru.filter(x => x.dikesan).length;
+  const h = { skor, masa, ikutKumpulan, ikutJenis, tiruBerjaya, jumlah: r.length, betul: r.filter(x => x.betul).length, betul1: r.filter(x => x.cubaan === 1).length };
+
+  const bintang = skor >= 80 ? 3 : skor >= 50 ? 2 : 1;
+  $('#bintang').innerHTML = [1, 2, 3].map(n => `<span class="${n <= bintang ? '' : 'mati'}">⭐</span>`).join('');
+  const mesej = skor >= 80 ? 'Hebat' : skor >= 50 ? 'Bagus' : 'Syabas mencuba';
+  $('#tahniah').textContent = `${mesej}, ${st.nama}!`;
+  $('#skor-besar').innerHTML = `${skor}<small> / 100</small>`;
+  $('#ringkas').innerHTML = `<span>✅ ${h.betul}/${h.jumlah} betul</span><span>🎯 ${h.betul1} betul cubaan pertama</span><span>🎤 Tiru ${tiruBerjaya}/${st.tiru.length}</span><span>⏱️ ${Math.floor(masa / 60)} min ${masa % 60} saat</span>`;
+  $('#hasil-kump').innerHTML = KAT.map(k => {
+    const x = ikutKumpulan[k], pc = x.jumlah ? Math.round(x.betulCubaanPertama / x.jumlah * 100) : 0;
+    return `<div class="baris"><span class="e">${KUMPULAN[k].emoji}</span><div><div class="lbl">${KUMPULAN[k].nama}</div><div class="bar"><i style="width:${pc}%;background:${KUMPULAN[k].warna}"></i></div></div><div class="n">${x.betulCubaanPertama}/${x.jumlah}</div></div>`;
+  }).join('');
+  $('#butiran').innerHTML = r.map(x => {
+    const q = { jenis: x.jenis };
+    return `<tr><td>${x.no}</td><td>${JENIS[x.jenis]}</td><td>${B[x.bunyi].emoji} ${B[x.bunyi].nama}</td><td>${labelJawapan(q, x.pilihanPertama)} ${x.cubaan === 1 ? '✅' : '❌'}</td><td>${x.markah}</td></tr>`;
+  }).join('');
+  $('#butiran-tiru').innerHTML = st.tiru.map(x => `<tr><td>${B[x.bunyi].emoji} ${B[x.bunyi].nama}</td><td>${x.dikesan ? '✅ Meniru (suara dikesan)' : x.dilangkau ? '⏭ Dilangkau' : '❌ Tidak dikesan'}</td></tr>`).join('');
+
+  tunjuk('s-tamat');
+  if (bintang === 3) konfeti();
+  bunyiBetul();
+  setTimeout(() => jalankan([{ suara: 'tamat_' + bintang }]), 600);
+
+  const sts = $('#status-simpan'); sts.className = 'status';
+  if (st.offline) { sts.textContent = DEMO ? 'Mod demo: skor tidak disimpan ke database.' : 'Skor tidak disimpan (main tanpa log masuk).'; return; }
+  sts.textContent = 'Menyimpan skor…';
+  try {
+    const s = await simpanSkor(h);
+    sts.className = 'status ok';
+    sts.textContent = `✓ Skor disimpan (kali ke-${s.kaliMain} main)${s.rekodBaru ? ' · 🎉 Rekod baru!' : ''}`;
+  } catch (e) {
+    console.error(e);
+    sts.className = 'status bad'; sts.textContent = 'Skor tidak dapat disimpan. ' + petua(e);
+  }
+}
+$('#btn-lagi').addEventListener('click', mulaGame);
+$('#btn-murid-lain').addEventListener('click', () => {
+  henti(); $('#nama').value = ''; $('#chip').classList.remove('on'); st.offline = DEMO;
+  tunjuk('s-mula'); $('#nama').focus();
+});
+
+/* ================= PAPAN SKOR ================= */
+$('#btn-papan').addEventListener('click', bukaPapan);
+$('#btn-kembali').addEventListener('click', () => tunjuk('s-tamat'));
+async function bukaPapan() {
+  tunjuk('s-papan');
+  const ol = $('#senarai'), status = $('#papan-status'); ol.innerHTML = '';
+  if (DEMO || st.offline) { status.textContent = 'Papan skor perlukan sambungan Firebase.'; return; }
+  status.textContent = 'Memuatkan…';
+  try {
+    const { db, F } = await fbInit();
+    const snap = await F.getDocs(F.query(F.collection(db, 'leaderboards', GAME_ID, 'scores'), F.orderBy('score', 'desc'), F.limit(10)));
+    status.textContent = snap.empty ? 'Belum ada skor. Jadilah yang pertama!' : '10 skor tertinggi';
+    let n = 0;
+    snap.forEach(d => {
+      n++;
+      const li = document.createElement('li'); if (d.id === st.uid) li.classList.add('saya');
+      const a = document.createElement('span'); a.className = 'rank'; a.textContent = n <= 3 ? ['🥇', '🥈', '🥉'][n - 1] : n;
+      const b = document.createElement('span'); b.className = 'nm'; b.textContent = d.data().displayName;
+      const c = document.createElement('span'); c.className = 'sc'; c.textContent = d.data().score;
+      li.append(a, b, c); ol.append(li);
+    });
+  } catch (e) { console.error(e); status.textContent = 'Tidak dapat memuatkan papan skor. ' + petua(e); }
+}
+</script>
+</body>
+</html>
