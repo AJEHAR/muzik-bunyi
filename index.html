@@ -166,6 +166,33 @@ th{color:var(--muted)}
 #senarai .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #senarai .sc{color:var(--primary-d);font-weight:800}
 
+/* Skor Murid (laporan umum) */
+.lap-kepala{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lap-kepala h2{margin:0;font-size:2rem}
+.btn.kecil{min-height:48px;font-size:1.1rem;padding:6px 16px 2px}
+.lap-ringkas{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.lap-ringkas span{background:var(--bg);border:2px solid var(--line);border-radius:14px;padding:4px 12px 0;font-weight:700}
+.lap-alat{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}
+.lap-alat input,.lap-alat select{font:inherit;font-size:1.1rem;font-weight:700;padding:8px 12px 4px;border:3px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);outline:none;min-width:0}
+.lap-alat input:focus,.lap-alat select:focus{border-color:var(--primary)}
+#lap-status{color:var(--muted);font-weight:700;margin:6px 0}
+.lap-murid{border:3px solid var(--line);border-radius:18px;margin-bottom:8px;background:#fff;overflow:hidden}
+.lap-murid[open]{border-color:var(--primary)}
+.lap-murid summary{display:grid;grid-template-columns:40px 1fr auto auto;align-items:center;gap:10px;padding:10px 12px 6px;cursor:pointer;list-style:none}
+.lap-murid summary::-webkit-details-marker{display:none}
+.lap-no{font-size:1.3rem;font-weight:800;text-align:center;color:var(--muted)}
+.lap-nama{font-size:1.25rem;font-weight:800;line-height:1.15;overflow:hidden}
+.lap-nama small{display:block;font-size:.85rem;font-weight:600;color:var(--muted)}
+.lap-skor{text-align:center;line-height:1}
+.lap-skor b{display:block;font-size:1.6rem;color:var(--primary-d)}
+.lap-skor small{font-size:.75rem;color:var(--muted);font-weight:700}
+.lap-skor.kini b{color:var(--ink);font-size:1.3rem}
+.lap-isi{padding:4px 14px 14px;border-top:2px dashed var(--line)}
+.lap-kat{display:grid;grid-template-columns:minmax(110px,auto) 1fr auto;gap:10px;align-items:center;margin:8px 0;font-weight:700}
+.lap-chip{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.lap-chip span{background:var(--bg);border-radius:12px;padding:3px 10px 0;font-weight:700;font-size:.95rem}
+.lap-isi table{font-size:.95rem}
+@media (max-width:520px){.lap-murid summary{grid-template-columns:30px 1fr auto auto;gap:6px}.lap-kat{grid-template-columns:1fr auto;gap:2px 10px}.lap-kat .bar{grid-column:1/3;grid-row:2}}
 .konfeti{position:fixed;top:-40px;font-size:2rem;pointer-events:none;animation:jatuh linear forwards;z-index:9}
 @keyframes jatuh{to{transform:translateY(110vh) rotate(540deg)}}
 
@@ -207,6 +234,7 @@ th{color:var(--muted)}
       <button class="btn kedua besar" id="btn-offline" style="display:none">Main juga (skor tidak disimpan)</button>
       <div class="nota" id="nota-demo" style="display:none"><b>Mod demo:</b> firebaseConfig belum diisi, jadi skor tidak disimpan.</div>
       <div class="nota" id="status-suara"></div>
+      <button class="btn kedua besar" id="btn-skor-mula">📊 Lihat Skor Murid</button>
     </div>
   </section>
 
@@ -256,7 +284,7 @@ th{color:var(--muted)}
       <div class="status" id="status-simpan"></div>
       <div class="butang-akhir">
         <button class="btn" id="btn-lagi">🔁 Main Lagi</button>
-        <button class="btn kedua" id="btn-papan">🏆 Papan Skor</button>
+        <button class="btn kedua" id="btn-papan">📊 Skor Murid</button>
         <button class="btn kedua" id="btn-murid-lain">👤 Murid Lain</button>
       </div>
       <details>
@@ -267,13 +295,18 @@ th{color:var(--muted)}
     </div>
   </section>
 
-  <!-- PAPAN SKOR -->
-  <section class="screen" id="s-papan">
+  <!-- SKOR MURID (umum: murid & guru boleh lihat) -->
+  <section class="screen" id="s-laporan">
     <div class="card">
-      <h2 style="margin:0;font-size:2rem">🏆 Papan Skor</h2>
-      <div style="color:var(--muted);font-weight:700" id="papan-status"></div>
-      <ol id="senarai"></ol>
-      <button class="btn besar" id="btn-kembali">⬅ Kembali</button>
+      <div class="lap-kepala"><h2>📊 Skor Murid</h2><button class="btn kedua kecil" id="lap-csv">⬇ Muat turun Excel</button></div>
+      <div class="lap-ringkas" id="lap-ringkas"></div>
+      <div class="lap-alat">
+        <input id="lap-cari" placeholder="🔍 Cari nama" aria-label="Cari nama" autocomplete="off">
+        <select id="lap-susun" aria-label="Susun"><option value="terkini">Terkini</option><option value="skor">Skor terbaik</option><option value="nama">Nama A–Z</option></select>
+      </div>
+      <div id="lap-status"></div>
+      <div id="lap-senarai"></div>
+      <button class="btn besar" id="lap-kembali">⬅ Kembali</button>
     </div>
   </section>
 </div>
@@ -453,6 +486,21 @@ async function logMasuk(nama) {
   if (!profil) await F.setDoc(F.doc(db, 'users', u.uid), { displayName: nama, createdAt: F.serverTimestamp() }, { merge: true });
   st.uid = u.uid;
 }
+// Ringkasan umum untuk halaman Skor Murid
+function binaRingkasan(h) {
+  return {
+    kategori: KAT.map(k => ({ label: KUMPULAN[k].nama, emoji: KUMPULAN[k].emoji, warna: KUMPULAN[k].warna, betul: h.ikutKumpulan[k].betulCubaanPertama, jumlah: h.ikutKumpulan[k].jumlah })),
+    tambahan: [
+      { label: 'Betul', nilai: `${h.betul} / ${h.jumlah}` },
+      { label: 'Betul cubaan pertama', nilai: `${h.betul1} / ${h.jumlah}` },
+      { label: 'Tiru bunyi (3.1.1)', nilai: `${h.tiruBerjaya} / ${st.tiru.length}` }
+    ],
+    jawapan: [
+      ...st.rekod.map(x => ({ soalan: `${JENIS[x.jenis]}: ${B[x.bunyi].nama}`, jawapan: labelJawapan({ jenis: x.jenis }, x.pilihanPertama), betul: x.cubaan === 1, markah: x.markah })),
+      ...st.tiru.map(x => ({ soalan: `Tiru bunyi: ${B[x.bunyi].nama}`, jawapan: x.dikesan ? 'Meniru' : x.dilangkau ? 'Dilangkau' : 'Tidak dikesan', betul: !!x.dikesan, markah: '-' }))
+    ]
+  };
+}
 async function simpanSkor(h) {
   const { db, F } = await fbInit();
   const pRef = F.doc(db, 'users', st.uid, 'progress', GAME_ID);
@@ -473,6 +521,23 @@ async function simpanSkor(h) {
       jawapan: st.rekod
     }
   });
+  // Skor Murid (umum): ringkasan untuk paparan guru & murid
+  let laporanOk = true;
+  try {
+    const rRef = F.doc(db, 'laporan', GAME_ID, 'murid', st.uid);
+    const rSnap = await F.getDoc(rRef);
+    const sej = (rSnap.exists() && rSnap.data().sejarah) || [];
+    await F.setDoc(rRef, {
+      nama: (st.avatar + ' ' + st.nama).slice(0, 30),
+      skor: h.skor,
+      skorTerbaik: Math.max(lama.bestScore || 0, h.skor),
+      kaliMain,
+      masaSaat: h.masa,
+      dikemaskini: F.serverTimestamp(),
+      ringkasan: binaRingkasan(h),
+      sejarah: [...sej, { skor: h.skor, tarikh: new Date() }].slice(-10)
+    });
+  } catch (e) { console.error(e); laporanOk = false; }
   const lRef = F.doc(db, 'leaderboards', GAME_ID, 'scores', st.uid);
   const lSnap = await F.getDoc(lRef);
   let rekodBaru = false;
@@ -480,7 +545,7 @@ async function simpanSkor(h) {
     await F.setDoc(lRef, { score: h.skor, displayName: (st.avatar + ' ' + st.nama).slice(0, 30), updatedAt: F.serverTimestamp() });
     rekodBaru = lSnap.exists();
   }
-  return { kaliMain, rekodBaru };
+  return { kaliMain, rekodBaru, laporanOk };
 }
 
 /* ================= MULA ================= */
@@ -740,7 +805,7 @@ async function tamat() {
   try {
     const s = await simpanSkor(h);
     sts.className = 'status ok';
-    sts.textContent = `✓ Skor disimpan (kali ke-${s.kaliMain} main)${s.rekodBaru ? ' · 🎉 Rekod baru!' : ''}`;
+    sts.textContent = `✓ Skor disimpan (kali ke-${s.kaliMain} main)${s.rekodBaru ? ' · 🎉 Rekod baru!' : ''}${s.laporanOk ? '' : ' · ⚠️ Skor Murid belum aktif (guru perlu kemas kini Rules)'}`;
   } catch (e) {
     console.error(e);
     sts.className = 'status bad'; sts.textContent = 'Skor tidak dapat disimpan. ' + petua(e);
@@ -752,29 +817,88 @@ $('#btn-murid-lain').addEventListener('click', () => {
   tunjuk('s-mula'); $('#nama').focus();
 });
 
-/* ================= PAPAN SKOR ================= */
-$('#btn-papan').addEventListener('click', bukaPapan);
-$('#btn-kembali').addEventListener('click', () => tunjuk('s-tamat'));
-async function bukaPapan() {
-  tunjuk('s-papan');
-  const ol = $('#senarai'), status = $('#papan-status'); ol.innerHTML = '';
-  if (DEMO || st.offline) { status.textContent = 'Papan skor perlukan sambungan Firebase.'; return; }
+/* ---------- SKOR MURID (umum: semua orang boleh lihat, tanpa log masuk) ---------- */
+let lapData = [], lapDari = 's-mula';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const tarikhTeks = t => { const d = t && t.toDate ? t.toDate() : (t instanceof Date ? t : null); return d ? d.toLocaleString('ms-MY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'; };
+const tarikhPendek = t => { const d = t && t.toDate ? t.toDate() : (t instanceof Date ? t : null); return d ? d.toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' }) : ''; };
+const warnaSah = w => /^#[0-9a-f]{3,8}$/i.test(w || '') ? w : 'var(--primary)';
+async function bukaLaporan(dari) {
+  lapDari = dari; henti(); tunjuk('s-laporan');
+  const status = $('#lap-status');
+  $('#lap-senarai').innerHTML = ''; $('#lap-ringkas').innerHTML = ''; lapData = [];
+  if (DEMO) { status.textContent = 'Mod demo: Skor Murid perlukan Firebase.'; return; }
   status.textContent = 'Memuatkan…';
   try {
     const { db, F } = await fbInit();
-    const snap = await F.getDocs(F.query(F.collection(db, 'leaderboards', GAME_ID, 'scores'), F.orderBy('score', 'desc'), F.limit(10)));
-    status.textContent = snap.empty ? 'Belum ada skor. Jadilah yang pertama!' : '10 skor tertinggi';
-    let n = 0;
-    snap.forEach(d => {
-      n++;
-      const li = document.createElement('li'); if (d.id === st.uid) li.classList.add('saya');
-      const a = document.createElement('span'); a.className = 'rank'; a.textContent = n <= 3 ? ['🥇', '🥈', '🥉'][n - 1] : n;
-      const b = document.createElement('span'); b.className = 'nm'; b.textContent = d.data().displayName;
-      const c = document.createElement('span'); c.className = 'sc'; c.textContent = d.data().score;
-      li.append(a, b, c); ol.append(li);
-    });
-  } catch (e) { console.error(e); status.textContent = 'Tidak dapat memuatkan papan skor. ' + petua(e); }
+    const snap = await F.getDocs(F.query(F.collection(db, 'laporan', GAME_ID, 'murid'), F.limit(500)));
+    lapData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    status.textContent = lapData.length ? '' : 'Belum ada murid yang tamat bermain.';
+    paparLaporan();
+  } catch (e) {
+    console.error(e);
+    status.textContent = 'Tidak dapat memuatkan Skor Murid. ' + ((e.code || '').includes('permission') ? 'Guru: tambah blok "laporan" dalam Firestore Rules.' : petua(e));
+  }
 }
+function paparLaporan() {
+  const cari = $('#lap-cari').value.trim().toLowerCase(), susun = $('#lap-susun').value;
+  const masa = d => d.dikemaskini && d.dikemaskini.toMillis ? d.dikemaskini.toMillis() : 0;
+  const l = lapData.filter(d => !cari || String(d.nama).toLowerCase().includes(cari));
+  l.sort(susun === 'skor' ? (a, b) => (b.skorTerbaik || 0) - (a.skorTerbaik || 0) || (b.skor || 0) - (a.skor || 0)
+       : susun === 'nama' ? (a, b) => String(a.nama).replace(/^\S+\s/, '').localeCompare(String(b.nama).replace(/^\S+\s/, ''))
+       : (a, b) => masa(b) - masa(a));
+  if (lapData.length) {
+    const purata = k => Math.round(lapData.reduce((s, d) => s + (d[k] || 0), 0) / lapData.length);
+    $('#lap-ringkas').innerHTML = `<span>👥 ${lapData.length} murid</span><span>📈 Purata terkini ${purata('skor')}</span><span>🏆 Purata terbaik ${purata('skorTerbaik')}</span><span>🔁 ${lapData.reduce((s, d) => s + (d.kaliMain || 0), 0)} kali main</span>`;
+  }
+  $('#lap-senarai').innerHTML = l.map((d, i) => {
+    const r = d.ringkasan || {};
+    const no = susun === 'skor' && i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1;
+    const kat = (r.kategori || []).map(k => {
+      const pc = k.jumlah ? Math.round(k.betul / k.jumlah * 100) : 0;
+      return `<div class="lap-kat"><span>${esc(k.emoji)} ${esc(k.label)}</span><div class="bar"><i style="width:${pc}%;background:${warnaSah(k.warna)}"></i></div><b>${esc(k.betul)}/${esc(k.jumlah)}</b></div>`;
+    }).join('');
+    const chip = (r.tambahan || []).map(t => `<span>${esc(t.label)}: ${esc(t.nilai)}</span>`).join('')
+      + `<span>⏱️ ${Math.floor((d.masaSaat || 0) / 60)} min ${(d.masaSaat || 0) % 60} s</span>`;
+    const sej = (d.sejarah || []).map(s => `<span>${esc(s.skor)} <small>${esc(tarikhPendek(s.tarikh))}</small></span>`).join('');
+    const jaw = (r.jawapan || []).map((j, n) => `<tr><td>${n + 1}</td><td>${esc(j.soalan)}</td><td>${esc(j.jawapan)} ${j.betul ? '✅' : '❌'}</td><td>${esc(j.markah)}</td></tr>`).join('');
+    return `<details class="lap-murid"><summary>
+        <span class="lap-no">${no}</span>
+        <span class="lap-nama">${esc(d.nama)}<small>${esc(tarikhTeks(d.dikemaskini))} · ${esc(d.kaliMain || 0)}× main</small></span>
+        <span class="lap-skor"><b>${esc(d.skorTerbaik ?? 0)}</b><small>terbaik</small></span>
+        <span class="lap-skor kini"><b>${esc(d.skor ?? 0)}</b><small>terkini</small></span>
+      </summary><div class="lap-isi">
+        ${kat}
+        <div class="lap-chip">${chip}</div>
+        ${sej ? `<div><b>Sejarah skor (terkini di kanan):</b><div class="lap-chip">${sej}</div></div>` : ''}
+        ${jaw ? `<table><thead><tr><th>#</th><th>Soalan (main terakhir)</th><th>Jawapan pertama</th><th>Markah</th></tr></thead><tbody>${jaw}</tbody></table>` : ''}
+      </div></details>`;
+  }).join('');
+}
+$('#lap-cari').addEventListener('input', paparLaporan);
+$('#lap-susun').addEventListener('change', paparLaporan);
+$('#lap-kembali').addEventListener('click', () => tunjuk(lapDari));
+$('#btn-skor-mula').addEventListener('click', () => bukaLaporan('s-mula'));
+$('#btn-papan').addEventListener('click', () => bukaLaporan('s-tamat'));
+$('#lap-csv').addEventListener('click', () => {
+  if (!lapData.length) return;
+  const katL = [...new Set(lapData.flatMap(d => ((d.ringkasan || {}).kategori || []).map(k => k.label)))];
+  const tamL = [...new Set(lapData.flatMap(d => ((d.ringkasan || {}).tambahan || []).map(k => k.label)))];
+  const kepala = ['Nama samaran', 'Skor terkini', 'Skor terbaik', 'Kali main', 'Masa (saat)', 'Main terakhir', ...katL.map(x => x + ' (betul cubaan pertama)'), ...tamL];
+  const baris = lapData.map(d => {
+    const r = d.ringkasan || {};
+    const km = Object.fromEntries((r.kategori || []).map(k => [k.label, `${k.betul} / ${k.jumlah}`]));
+    const tm = Object.fromEntries((r.tambahan || []).map(k => [k.label, k.nilai]));
+    return [String(d.nama || '').replace(/^\S+\s/, ''), d.skor, d.skorTerbaik, d.kaliMain, d.masaSaat, tarikhTeks(d.dikemaskini), ...katL.map(x => km[x] ?? ''), ...tamL.map(x => tm[x] ?? '')];
+  });
+  const sel = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = '﻿' + [kepala, ...baris].map(b => b.map(sel).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `skor-${GAME_ID}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
 </script>
 </body>
 </html>
